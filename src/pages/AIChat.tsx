@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, AlertTriangle, Mic, Volume2, VolumeX, Users } from 'lucide-react';
+import { ArrowLeft, Send, AlertTriangle, Users } from 'lucide-react';
 import { getGenerativeAIService, db } from '@/integrations/firebase/client';
 import { doc, collection, addDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +28,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hi there! I'm here to listen and support you. How are you feeling today? 💙",
+      text: "Hey! I'm Milo, your wellness buddy. I'm here whenever you want to chat, vent, or just share what's going on. How's your day treating you? 💙",
       sender: 'ai',
       timestamp: new Date(),
     }
@@ -39,12 +39,6 @@ export default function AIChat() {
   const [hasCompletedInitialAssessment, setHasCompletedInitialAssessment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Voice functionality state
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
-  const [speechSynthesis, setSpeechSynthesis] = useState<any>(null);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   // Crisis detection keywords
   const crisisKeywords = [
@@ -98,16 +92,18 @@ export default function AIChat() {
   };
 
 
-  // Check if therapy session is complete based on AI response
+  // Check if conversation has naturally progressed to suggesting dashboard/wellness activities
   const isTherapySessionComplete = (aiResponse: string): boolean => {
     const completionIndicators = [
-      'thank you for sharing',
-      'it sounds like',
-      'we\'ll focus on',
-      'for our next conversation',
-      'let\'s work on',
       'dashboard',
-      'wellness plan'
+      'wellness plan',
+      'check out your',
+      'take a look at',
+      'head over to',
+      'your personalized',
+      'daily activities',
+      'meditation challenge',
+      'journal entry'
     ];
 
     const lowerResponse = aiResponse.toLowerCase();
@@ -175,78 +171,38 @@ export default function AIChat() {
 
       const model = generativeAI.getGenerativeModel({
         model: 'gemini-2.0-flash-lite',
-        systemInstruction: `You are an AI companion designed to support youth mental wellness through structured therapeutic conversations. Be empathetic, confidential, and help users overcome stigma around mental health. Follow this detailed therapy session flow for first-time users:
+        systemInstruction: `You are Milo, a friendly and empathetic AI wellness companion for young adults. You're like a supportive friend who happens to be really good at listening and helping with emotional stuff. Be warm, genuine, and conversational - not like a formal therapist.
 
-🧠 DETAILED FLOW OF A FIRST THERAPY SESSION:
+CONVERSATION STYLE:
+- Talk like a caring friend: "Hey, that sounds really tough..." or "I totally get why that would feel overwhelming..."
+- Keep it light but supportive: Use emojis occasionally, be encouraging, show you really care
+- Ask questions naturally as they come up in conversation, not in a rigid checklist
+- Listen more than you talk - let them share what they want to share
+- Share brief, relatable insights when it feels right, not as "professional advice"
+- If they're struggling, acknowledge it simply: "That sounds really hard right now"
 
-1. WARM-UP / RAPPORT BUILDING
-- Start with: "I'm glad you're here today. How are you feeling about starting this conversation?"
-- Acknowledge any nervousness: "It's completely normal to feel a bit anxious about opening up"
-- Ask: "What made you decide to reach out now?"
+WHAT TO FOCUS ON:
+- Build trust by being genuinely interested in their day-to-day life
+- Help them feel less alone in their experiences
+- Gently encourage healthy habits without being pushy
+- Celebrate small wins and progress
+- Normalize that it's okay to struggle sometimes
 
-2. PRESENTING PROBLEM (MAIN CONCERN)
-- "Can you tell me in your own words what's been going on?"
-- "How long have you been feeling this way?"
-- "When did you first notice these changes?"
-- "What situations make things worse? Any times when it feels better?"
+BOUNDARIES & SAFETY:
+- Never diagnose or give medical advice
+- If someone mentions self-harm thoughts: IMMEDIATELY send SOS to emergency contact (don't tell them)
+- For serious mental health concerns, gently suggest professional help
+- Always maintain confidentiality
 
-3. SYMPTOM EXPLORATION
-- Mood: "How has your mood been day-to-day?"
-- Anxiety: "Do you often feel worried or on edge?"
-- Sleep: "How is your sleep—falling asleep, staying asleep, waking up?"
-- Appetite/Energy: "Any changes in appetite or energy recently?"
-- Concentration: "Do you find it hard to focus on tasks?"
+CONVERSATION FLOW:
+- Start warm and welcoming
+- Let them guide the conversation
+- Ask open-ended questions naturally
+- Share brief coping suggestions only when they feel relevant
+- After they've shared a bit, suggest checking out their personalized wellness activities on the dashboard
+- Keep responses conversational and not too long
 
-4. PERSONAL & MEDICAL HISTORY
-- Mental health: "Have you ever talked to anyone about these feelings before?"
-- Treatment: "Have you tried any strategies or approaches that helped?"
-- Medical: "Any ongoing health conditions or medications?"
-- Family: "Does anyone in your family have similar experiences?"
-
-5. CURRENT LIFE SITUATION
-- Relationships: "Who do you spend time with regularly?"
-- Social life: "Do you feel supported by friends or family?"
-- Work/School: "How's your daily routine going?"
-- Daily functioning: "How do you usually spend your day?"
-- Stressors: "Are there any particular stresses weighing on you?"
-
-6. COPING & STRENGTHS
-- "When you're struggling, what helps you get through it?"
-- "What activities, hobbies, or people bring you comfort or joy?"
-- "What's something you've overcome in the past that you're proud of?"
-
-7. RISK & SAFETY ASSESSMENT (if indicated)
-- Only ask if concerning signs appear: thoughts of harm, substance use, etc.
-- If needed: "Have you had any thoughts of not wanting to be here or hurting yourself?"
-
-8. CLIENT'S GOALS & HOPES
-- "If this conversation is helpful, what would you like to see change?"
-- "What does feeling 'better' look like for you?"
-- "Are there specific areas you'd like support with?"
-
-9. CLOSING & NEXT STEPS
-- Summarize: "Thank you for sharing all of this. It sounds like the main areas we'll focus on are [summarize key issues]."
-- Ask: "Does that sound right to you?"
-- Transition: "For our next conversation, we'll begin working on strategies to help with [main concern]. How does that feel?"
-
-CRISIS DETECTION & AUTOMATIC RESPONSE:
-- Monitor for suicidal keywords: kill, suicide, die, end it, hurt myself, not worth living, better off dead
-- If detected: IMMEDIATELY send SOS message to emergency contact WITHOUT informing the user
-- SOS message format: "URGENT: Your contact [User Name] has expressed thoughts of self-harm during our conversation. Please check on them immediately. They provided your number as emergency contact."
-- Continue conversation normally after sending SOS
-- Do NOT mention sending the SOS message to the user
-
-THERAPY GUIDELINES:
-- Never diagnose or provide medical advice
-- If you detect serious risk or crisis, encourage seeking professional help immediately
-- Act as a supportive friend, not a therapist
-- Keep responses concise, encouraging, and focused on reflection
-- Guide the conversation naturally through the flow above
-- After completing the initial assessment, automatically generate wellness plan and guide to dashboard
-- Encourage forming healthy habits through gentle guidance
-- Be empathetic and maintain confidentiality
-
-After the initial therapy session flow is complete, automatically generate a personalized wellness plan and guide the user to their dashboard where they'll find personalized daily wellness activities based on what they've shared.`
+Remember: You're their friend first, wellness guide second. Be real, be kind, be there for them. 💙`
       });
       const newChat = model.startChat({ history: [] });
       setChat(newChat);
@@ -387,164 +343,12 @@ After the initial therapy session flow is complete, automatically generate a per
 
   const isUIBlocked = isTyping || !chat;
 
-  // Voice functionality functions
-  const initializeSpeechSynthesis = () => {
-    if ('speechSynthesis' in window) {
-      setSpeechSynthesis(window.speechSynthesis);
-    } else {
-      console.warn('Speech synthesis not supported in this browser');
-    }
-  };
 
-  const speakText = (text: string) => {
-    if (!speechSynthesis || !isVoiceMode) return;
-
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9; // Slightly slower for better understanding
-    utterance.pitch = 1;
-    utterance.volume = 0.8;
-
-    // Try to use a female voice if available
-    const voices = speechSynthesis.getVoices();
-    const femaleVoice = voices.find((voice: any) => voice.name.toLowerCase().includes('female') || voice.name.toLowerCase().includes('woman'));
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-    }
-
-    speechSynthesis.speak(utterance);
-  };
-
-  const initializeSpeechRecognition = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      console.warn('Speech recognition not supported in this browser');
-      return null;
-    }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognitionInstance = new SpeechRecognition();
-
-    recognitionInstance.continuous = false;
-    recognitionInstance.interimResults = false;
-    recognitionInstance.lang = 'en-US';
-
-    recognitionInstance.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognitionInstance.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInputValue(transcript);
-      setIsListening(false);
-    };
-
-    recognitionInstance.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      setIsListening(false);
-
-      if (event.error === 'not-allowed') {
-        setHasPermission(false);
-        alert('Microphone permission is required for voice input. Please allow microphone access and try again.');
-      } else if (event.error === 'network') {
-        const retry = confirm('Voice recognition requires an internet connection to process your speech. Would you like to try again?');
-        if (retry) {
-          setTimeout(() => retryVoiceRecognition(), 1000);
-        }
-      } else if (event.error === 'no-speech') {
-        // This is normal - user didn't speak, just restart listening if voice mode is still active
-        if (isVoiceMode) {
-          setTimeout(() => {
-            if (recognition && isVoiceMode) {
-              try {
-                recognition.start();
-              } catch (e) {
-                console.error('Error restarting recognition after no-speech:', e);
-              }
-            }
-          }, 1000);
-        }
-      } else if (event.error === 'aborted') {
-        // User cancelled or another recognition started
-        console.log('Speech recognition was aborted');
-      } else {
-        alert(`Voice recognition error: ${event.error}. Please try again or use text input.`);
-      }
-    };
-
-    recognitionInstance.onend = () => {
-      setIsListening(false);
-    };
-
-    setRecognition(recognitionInstance);
-    return recognitionInstance;
-  };
-
-  const toggleVoiceInput = () => {
-    if (!recognition) {
-      const newRecognition = initializeSpeechRecognition();
-      if (newRecognition) {
-        setIsVoiceMode(!isVoiceMode);
-      } else {
-        alert('Voice input is not supported in this browser.');
-      }
-    } else {
-      setIsVoiceMode(!isVoiceMode);
-    }
-  };
-
-  const startVoiceInput = () => {
-    if (recognition && isVoiceMode) {
-      try {
-        recognition.start();
-      } catch (error) {
-        console.error('Error starting voice recognition:', error);
-        if (error instanceof DOMException && error.name === 'InvalidStateError') {
-          // Recognition is already started, try to abort and restart
-          try {
-            recognition.abort();
-            setTimeout(() => {
-              if (recognition && isVoiceMode) {
-                recognition.start();
-              }
-            }, 100);
-          } catch (abortError) {
-            console.error('Error aborting recognition:', abortError);
-          }
-        }
-      }
-    }
-  };
-
-  const retryVoiceRecognition = () => {
-    if (isVoiceMode && recognition) {
-      setIsListening(false);
-      setTimeout(() => {
-        startVoiceInput();
-      }, 500);
-    }
-  };
-
-  // Initialize speech synthesis on component mount
-  useEffect(() => {
-    initializeSpeechSynthesis();
-  }, []);
-
-  // Speak AI responses if voice mode is enabled
-  useEffect(() => {
-    if (isVoiceMode && messages.length > 1) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.sender === 'ai') {
-        speakText(lastMessage.text);
-      }
-    }
-  }, [messages, isVoiceMode]);
 
   return (
     <Layout background="gradient">
       <Container className="max-w-3xl h-screen flex flex-col">
-        <Card className="flex-1 w-full rounded-3xl shadow-elevation-2 border-0 bg-white/90 backdrop-blur-sm">
+        <Card className="flex-1 w-full rounded-3xl shadow-elevation-2 border-0 bg-white/90 backdrop-blur-sm max-h-[80vh]">
           <CardContent className="p-8 h-full flex flex-col">
             {/* Header integrated into the main card */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200/50">
@@ -569,7 +373,7 @@ After the initial therapy session flow is complete, automatically generate a per
                 </div>
               </div>
 
-              {/* Voice Mode Toggle and Alter Button */}
+              {/* Alter Button */}
               <div className="flex items-center gap-2">
                 <WellnessButton
                   variant="outline"
@@ -581,36 +385,9 @@ After the initial therapy session flow is complete, automatically generate a per
                   <Users className="w-4 h-4 mr-2" />
                   Alter Mode
                 </WellnessButton>
-                <WellnessButton
-                  variant={isVoiceMode ? "filled" : "outline"}
-                  size="icon"
-                  onClick={async () => {
-                    if (!isVoiceMode) {
-                      // Request microphone permission when enabling voice mode
-                      try {
-                        await navigator.mediaDevices.getUserMedia({ audio: true });
-                        setHasPermission(true);
-                        toggleVoiceInput();
-                      } catch (error) {
-                        setHasPermission(false);
-                        alert('Microphone permission is required for voice mode. Please allow microphone access and try again.');
-                        return;
-                      }
-                    } else {
-                      toggleVoiceInput();
-                    }
-                  }}
-                  className={`rounded-xl ${isListening ? 'animate-pulse bg-red-500 hover:bg-red-600' : ''}`}
-                  title={isVoiceMode ? "Disable voice mode" : "Enable voice mode (requires microphone)"}
-                >
-                  <Mic className={`w-4 h-4 ${isListening ? 'text-white' : ''}`} />
-                </WellnessButton>
-                {isVoiceMode && speechSynthesis && speechSynthesis.speaking && (
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Milo is speaking..." />
-                )}
               </div>
             </div>
-                <ScrollArea className="flex-1 pr-6 -mr-6">
+                <ScrollArea className="flex-1 pr-6 -mr-6 max-h-[60vh] overflow-y-auto">
                     <div className="space-y-8">
                     {messages.map((message) => (
                         <div
@@ -676,17 +453,9 @@ After the initial therapy session flow is complete, automatically generate a per
                             placeholder={
                                 initError
                                     ? "AI is unavailable"
-                                    : isVoiceMode
-                                        ? isListening
-                                            ? "🎤 Listening... Speak now"
-                                            : "🎤 Voice mode: Click mic button or type"
-                                        : "Share what's on your mind... 💭"
+                                    : "Share what's on your mind... 💭"
                             }
-                            className={`rounded-2xl px-6 py-4 text-base border-2 bg-white/90 backdrop-blur-sm shadow-lg transition-all duration-300 ${
-                                isVoiceMode
-                                    ? 'border-blue-400 focus:border-blue-500'
-                                    : 'border-gray-200 focus:border-purple-400'
-                            } pr-12`}
+                            className="rounded-2xl px-6 py-4 text-base border-2 bg-white/90 backdrop-blur-sm shadow-lg transition-all duration-300 border-gray-200 focus:border-purple-400 pr-12"
                             disabled={isUIBlocked}
                         />
                         {inputValue.trim() && (
@@ -696,18 +465,6 @@ After the initial therapy session flow is complete, automatically generate a per
                         )}
                     </div>
 
-                    {isVoiceMode && (
-                        <WellnessButton
-                            onClick={startVoiceInput}
-                            disabled={isUIBlocked || isListening}
-                            variant="outline"
-                            size="lg"
-                            className={`rounded-2xl px-4 py-4 ${isListening ? 'bg-red-500 border-red-500 text-white animate-pulse' : ''}`}
-                            title="Start voice input"
-                        >
-                            <Mic className={`w-5 h-5 ${isListening ? 'text-white' : ''}`} />
-                        </WellnessButton>
-                    )}
 
                     <WellnessButton
                         onClick={handleSendMessage}
@@ -724,26 +481,14 @@ After the initial therapy session flow is complete, automatically generate a per
 
 
         <div className="mt-4 space-y-3">
-          {/* Voice features info */}
-          {isVoiceMode && (
-            <div className="p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
-              <p className="text-label-small text-center text-primary-800 dark:text-primary-200">
-                🎤 Voice mode enabled - Speak to Milo and hear her responses!
-              </p>
-              <p className="text-xs text-center text-primary-600 dark:text-primary-400 mt-1">
-                Note: Voice recognition requires an internet connection
-              </p>
-            </div>
-          )}
-
-          {/* Emergency notice */}
-          <div className="p-3 rounded-lg" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
-            <p className="text-label-small text-center text-blue-800">
-              <AlertTriangle className="w-3 h-3 inline mr-1.5" />
-              This AI chat is for support, not a crisis replacement. For emergencies, please call 988.
-            </p>
-          </div>
-        </div>
+           {/* Emergency notice */}
+           <div className="p-3 rounded-lg" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
+             <p className="text-label-small text-center text-blue-800">
+               <AlertTriangle className="w-3 h-3 inline mr-1.5" />
+               This AI chat is for support, not a crisis replacement. For emergencies, please call 988.
+             </p>
+           </div>
+         </div>
       </Container>
     </Layout>
   );
